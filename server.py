@@ -98,6 +98,7 @@ class Handler(socketserver.StreamRequestHandler):
 
 def main():
     os.makedirs(WORKDIR, exist_ok=True)
+    os.chdir(WORKDIR)
     try:
         os.unlink(SOCKET_PATH)
     except FileNotFoundError:
@@ -113,4 +114,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
