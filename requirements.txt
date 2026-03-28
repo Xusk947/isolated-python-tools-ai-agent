@@ -1,0 +1,11 @@
+fpdf2
+reportlab
+numpy
+pandas
+matplotlib
+seaborn
+pillow
+plotly
+python-pptx
+openpyxl
+python-docx
