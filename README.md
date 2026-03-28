@@ -23,7 +23,6 @@ Set the sandbox image name used by the tools service:
 
 or directly:
 
-- `PYEXEC_SANDBOX_IMAGE=ghcr.io/xusk947/isolated-python-tools-ai-agent:latest`
+- `CROKI_PYEXEC_SANDBOX_IMAGE=ghcr.io/xusk947/isolated-python-tools-ai-agent:latest`
 
 Then restart the `tool-service`.
-
