@@ -115,6 +115,43 @@ class TestArtifacts(unittest.TestCase):
         )
         self._assert_has_extension(resp, ".png")
 
+    def test_matplotlib_savefig_reports_png(self) -> None:
+        out = _OUTPUTS / "instagram_logo.png"
+        try:
+            out.unlink()
+        except FileNotFoundError:
+            pass
+
+        resp = self.sandbox.exec(
+            "import matplotlib.pyplot as plt\n"
+            "import numpy as np\n"
+            "fig, ax = plt.subplots(figsize=(3, 3))\n"
+            "ax.axis('off')\n"
+            "z = np.linspace(0, 1, 64).reshape(8, 8)\n"
+            "ax.imshow(z, interpolation='bicubic', cmap='plasma', origin='lower')\n"
+            "plt.savefig('instagram_logo.png', bbox_inches='tight', pad_inches=0.1, dpi=100)\n"
+            "plt.close()\n",
+            timeout_seconds=15.0,
+        )
+        self._assert_has_extension(resp, ".png")
+        self.assertTrue(out.exists(), f"missing file: {out}")
+
+    def test_invalid_matplotlib_colormap_returns_error_and_sandbox_continues(self) -> None:
+        resp = self.sandbox.exec(
+            "import matplotlib.pyplot as plt\n"
+            "import numpy as np\n"
+            "fig, ax = plt.subplots()\n"
+            "ax.imshow(np.zeros((2,2)), cmap='instagram_gradient')\n"
+            "plt.close(fig)\n",
+            timeout_seconds=15.0,
+        )
+        self.assertIn("ValueError", resp.get("error", ""))
+        self.assertIn("instagram_gradient", resp.get("error", ""))
+
+        resp2 = self.sandbox.exec("print('ok')\n")
+        self.assertEqual(resp2.get("error", ""), "")
+        self.assertIn("ok", resp2.get("stdout", ""))
+
     def test_pil_show_creates_png(self) -> None:
         resp = self.sandbox.exec(
             "from PIL import Image\n"

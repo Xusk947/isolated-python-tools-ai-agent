@@ -409,6 +409,15 @@ def _patch_pptx():
 def _ensure_matplotlib_env(workdir: str) -> None:
     if not os.environ.get("MPLBACKEND"):
         os.environ["MPLBACKEND"] = "Agg"
+    if not os.environ.get("HOME"):
+        os.environ["HOME"] = workdir
+
+    xdg_config = os.environ.get("XDG_CONFIG_HOME")
+    if not xdg_config:
+        xdg_config = os.path.join(workdir, ".config")
+        os.environ["XDG_CONFIG_HOME"] = xdg_config
+    os.makedirs(xdg_config, exist_ok=True)
+
     mplconfig = os.environ.get("MPLCONFIGDIR")
     if not mplconfig:
         mplconfig = os.path.join(workdir, ".mplconfig")

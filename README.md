@@ -26,3 +26,8 @@ or directly:
 - `CROKI_PYEXEC_SANDBOX_IMAGE=ghcr.io/xusk947/isolated-python-tools-ai-agent:latest`
 
 Then restart the `tool-service`.
+
+## Matplotlib Notes
+
+- `cmap="instagram_gradient"` is not a built-in Matplotlib colormap. Use a built-in colormap like `plasma` / `magma`, or define a custom `LinearSegmentedColormap`.
+- When running with a read-only root filesystem, Matplotlib needs its config/cache dirs to be writable (e.g. `MPLCONFIGDIR`, `XDG_CONFIG_HOME`, `XDG_CACHE_HOME`).
