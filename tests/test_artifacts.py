@@ -7,6 +7,8 @@ import time
 import unittest
 from pathlib import Path
 
+from helpers import assert_has_extension
+
 
 _ROOT = Path(__file__).resolve().parents[1]
 _SERVER = _ROOT / "server.py"
@@ -76,10 +78,8 @@ class Sandbox:
                 timeout=timeout_seconds,
                 check=True,
             )
-        except subprocess.TimeoutExpired:
-            self.stop()
-            self.start()
-            return {"stdout": "", "stderr": "", "error": "context deadline exceeded", "changed_files": []}
+        except subprocess.TimeoutExpired as e:
+            raise TimeoutError("context deadline exceeded") from e
         out = p.stdout.decode("utf-8", errors="replace").strip()
         return json.loads(out)
 
@@ -95,16 +95,6 @@ class TestArtifacts(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.sandbox.stop()
 
-    def _assert_has_extension(self, resp: dict, ext: str) -> None:
-        self.assertEqual(resp.get("error", ""), "")
-        changed = resp.get("changed_files") or []
-        self.assertIsInstance(changed, list)
-        matches = [Path(p) for p in changed if str(p).endswith(ext)]
-        self.assertTrue(matches, f"no {ext} in changed_files: {changed}")
-        for p in matches:
-            self.assertTrue(p.exists(), f"missing file: {p}")
-            self.assertGreater(p.stat().st_size, 0, f"empty file: {p}")
-
     def test_matplotlib_show_creates_png(self) -> None:
         resp = self.sandbox.exec(
             "import matplotlib.pyplot as plt\n"
@@ -113,7 +103,7 @@ class TestArtifacts(unittest.TestCase):
             "plt.show()\n",
             timeout_seconds=15.0,
         )
-        self._assert_has_extension(resp, ".png")
+        assert_has_extension(resp, ".png")
 
     def test_matplotlib_savefig_reports_png(self) -> None:
         out = _OUTPUTS / "instagram_logo.png"
@@ -133,7 +123,7 @@ class TestArtifacts(unittest.TestCase):
             "plt.close()\n",
             timeout_seconds=15.0,
         )
-        self._assert_has_extension(resp, ".png")
+        assert_has_extension(resp, ".png")
         self.assertTrue(out.exists(), f"missing file: {out}")
 
     def test_invalid_matplotlib_colormap_returns_error_and_sandbox_continues(self) -> None:
@@ -158,7 +148,7 @@ class TestArtifacts(unittest.TestCase):
             "img = Image.new('RGB', (32, 32), (255, 0, 0))\n"
             "img.show()\n"
         )
-        self._assert_has_extension(resp, ".png")
+        assert_has_extension(resp, ".png")
 
     def test_plotly_show_creates_html(self) -> None:
         resp = self.sandbox.exec(
@@ -166,7 +156,15 @@ class TestArtifacts(unittest.TestCase):
             "fig = go.Figure(data=go.Scatter(y=[1, 3, 2]))\n"
             "fig.show()\n"
         )
-        self._assert_has_extension(resp, ".html")
+        assert_has_extension(resp, ".html")
+
+    def test_plotly_show_creates_png(self) -> None:
+        resp = self.sandbox.exec(
+            "import plotly.graph_objects as go\n"
+            "fig = go.Figure(data=go.Scatter(y=[1, 3, 2]))\n"
+            "fig.show()\n"
+        )
+        assert_has_extension(resp, ".png")
 
     def test_pdf_is_reported(self) -> None:
         resp = self.sandbox.exec(
@@ -175,7 +173,7 @@ class TestArtifacts(unittest.TestCase):
             "c.drawString(72, 720, 'hello')\n"
             "c.save()\n"
         )
-        self._assert_has_extension(resp, ".pdf")
+        assert_has_extension(resp, ".pdf")
 
     def test_docx_is_reported(self) -> None:
         resp = self.sandbox.exec(
@@ -184,7 +182,7 @@ class TestArtifacts(unittest.TestCase):
             "d.add_paragraph('hello')\n"
             "d.save('test.docx')\n"
         )
-        self._assert_has_extension(resp, ".docx")
+        assert_has_extension(resp, ".docx")
 
     def test_doc_is_reported(self) -> None:
         resp = self.sandbox.exec(
@@ -197,7 +195,7 @@ class TestArtifacts(unittest.TestCase):
             "\"\"\"\n"
             "open('test.doc', 'w', encoding='utf-8').write(xml)\n"
         )
-        self._assert_has_extension(resp, ".doc")
+        assert_has_extension(resp, ".doc")
 
     def test_pptx_is_reported(self) -> None:
         resp = self.sandbox.exec(
@@ -206,4 +204,4 @@ class TestArtifacts(unittest.TestCase):
             "p.slides.add_slide(p.slide_layouts[5])\n"
             "p.save('test.pptx')\n"
         )
-        self._assert_has_extension(resp, ".pptx")
+        assert_has_extension(resp, ".pptx")

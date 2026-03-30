@@ -23,17 +23,14 @@ def main():
 
     payload = json.dumps({"code": code}, ensure_ascii=False).encode("utf-8") + b"\n"
     try:
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.connect(SOCKET_PATH)
-        s.sendall(payload)
-        s.shutdown(socket.SHUT_WR)
-        data = b""
-        while True:
-            chunk = s.recv(4096)
-            if not chunk:
-                break
-            data += chunk
-        s.close()
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(30)
+            s.connect(SOCKET_PATH)
+            s.sendall(payload)
+            s.shutdown(socket.SHUT_WR)
+            data = b""
+            while chunk := s.recv(4096):
+                data += chunk
     except Exception as e:
         sys.stdout.write(json.dumps({"error": f"socket error: {e}"}) + "\n")
         return
@@ -43,4 +40,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

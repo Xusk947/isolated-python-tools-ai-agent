@@ -4,25 +4,11 @@ from pathlib import Path
 
 from PIL import Image, ImageChops
 
+from helpers import assert_has_extension
 from test_artifacts import Sandbox
 
 
 _OUT_DIR = Path(__file__).resolve().parent / "outputs" / "theme"
-
-
-def _assert_has_extension(resp: dict, ext: str) -> Path:
-    if resp.get("error", "") != "":
-        raise AssertionError(resp["error"])
-    changed = resp.get("changed_files") or []
-    matches = [Path(p) for p in changed if str(p).endswith(ext)]
-    if not matches:
-        raise AssertionError(f"no {ext} in changed_files: {changed}")
-    p = matches[-1]
-    if not p.exists():
-        raise AssertionError(f"missing file: {p}")
-    if p.stat().st_size <= 0:
-        raise AssertionError(f"empty file: {p}")
-    return p
 
 
 UZBEKISTAN_TEXT = (
@@ -64,7 +50,7 @@ class TestThemeOutputs(unittest.TestCase):
             "plt.show()\n",
             timeout_seconds=15.0,
         )
-        p = _assert_has_extension(resp, ".png")
+        p = assert_has_extension(resp, ".png")[-1]
         img = Image.open(p).convert("RGB")
         bg = img.getpixel((0, 0))
         diff = ImageChops.difference(img, Image.new(img.mode, img.size, bg))
@@ -87,7 +73,7 @@ class TestThemeOutputs(unittest.TestCase):
             "fig.show()\n",
             timeout_seconds=15.0,
         )
-        p = _assert_has_extension(resp, ".html")
+        p = assert_has_extension(resp, ".html")[-1]
         raw = p.read_text(encoding="utf-8", errors="replace")
         self.assertIn("Kazakhstan", raw)
         self.assertIn("Lato", raw)
@@ -102,7 +88,7 @@ class TestThemeOutputs(unittest.TestCase):
             "doc.save('uzbekistan.docx')\n",
             timeout_seconds=15.0,
         )
-        p = _assert_has_extension(resp, ".docx")
+        p = assert_has_extension(resp, ".docx")[-1]
         with zipfile.ZipFile(p, "r") as zf:
             styles = zf.read("word/styles.xml").decode("utf-8", errors="replace")
         self.assertIn("Lato", styles)
@@ -120,7 +106,7 @@ class TestThemeOutputs(unittest.TestCase):
             "c.save()\n",
             timeout_seconds=15.0,
         )
-        p = _assert_has_extension(resp, ".pdf")
+        p = assert_has_extension(resp, ".pdf")[-1]
         self.assertIn(b"Lato", p.read_bytes())
 
     def test_pptx_has_theme_fonts(self) -> None:
@@ -139,7 +125,7 @@ class TestThemeOutputs(unittest.TestCase):
             "prs.save('uzbekistan.pptx')\n",
             timeout_seconds=15.0,
         )
-        p = _assert_has_extension(resp, ".pptx")
+        p = assert_has_extension(resp, ".pptx")[-1]
         with zipfile.ZipFile(p, "r") as zf:
             slides = [zf.read(n).decode("utf-8", errors="replace") for n in zf.namelist() if n.startswith("ppt/slides/slide")]
         merged = "\n".join(slides)

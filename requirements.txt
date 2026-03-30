@@ -2,10 +2,15 @@ fpdf2
 reportlab
 numpy
 pandas
+scipy
+sympy
 matplotlib
 seaborn
 pillow
 plotly
+kaleido
+tabulate
 python-pptx
 openpyxl
 python-docx
+scikit-learn

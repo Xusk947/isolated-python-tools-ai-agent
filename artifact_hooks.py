@@ -1,4 +1,5 @@
 import builtins
+import itertools
 import os
 import sys
 import time
@@ -8,10 +9,30 @@ import theme
 
 
 _WORKDIR: Optional[str] = None
-_ARTIFACT_COUNTER = 0
+_ARTIFACT_COUNTER = itertools.count(1)
 _AUTO_HOOKS_INSTALLED = False
 _ORIG_IMPORT = builtins.__import__
 _REPORTLAB_TTF_REGISTERED = False
+_WARNED: set[str] = set()
+
+
+def _hook_warning(key: str, e: Exception) -> None:
+    if key in _WARNED:
+        return
+    _WARNED.add(key)
+    try:
+        print(f"[croki hook warning] {key}: {e}", file=sys.__stderr__)
+    except Exception:
+        return
+
+
+def _is_patched(obj) -> bool:
+    return bool(getattr(obj, "__patched__", False))
+
+
+def _mark_patched(fn):
+    fn.__patched__ = True
+    return fn
 
 
 def _apply_matplotlib_defaults() -> None:
@@ -77,7 +98,7 @@ def _apply_matplotlib_defaults() -> None:
     except Exception:
         return
 
-    if not getattr(maxes.Axes.set_title, "__croki_patched__", False):
+    if not _is_patched(maxes.Axes.set_title):
         orig_set_title = maxes.Axes.set_title
 
         def set_title(self, label, fontdict=None, loc=None, pad=None, y=None, **kwargs):
@@ -95,10 +116,10 @@ def _apply_matplotlib_defaults() -> None:
                 fontdict["fontfamily"] = theme.HEADING_FONT_FAMILY
             return orig_set_title(self, label, fontdict=fontdict, loc=loc, pad=pad, y=y, **kwargs)
 
-        set_title.__croki_patched__ = True
+        _mark_patched(set_title)
         maxes.Axes.set_title = set_title
 
-    if not getattr(mfigure.Figure.suptitle, "__croki_patched__", False):
+    if not _is_patched(mfigure.Figure.suptitle):
         orig_suptitle = mfigure.Figure.suptitle
 
         def suptitle(self, t, **kwargs):
@@ -107,7 +128,7 @@ def _apply_matplotlib_defaults() -> None:
                 kwargs["fontfamily"] = theme.HEADING_FONT_FAMILY
             return orig_suptitle(self, t, **kwargs)
 
-        suptitle.__croki_patched__ = True
+        _mark_patched(suptitle)
         mfigure.Figure.suptitle = suptitle
 
 
@@ -252,7 +273,7 @@ def _patch_reportlab():
     except Exception:
         return
 
-    if getattr(Canvas.__init__, "__croki_patched__", False):
+    if _is_patched(Canvas.__init__):
         return
 
     def _register_ttf(font_name: str, path: str) -> None:
@@ -263,7 +284,8 @@ def _patch_reportlab():
             pass
         try:
             pdfmetrics.registerFont(TTFont(font_name, path))
-        except Exception:
+        except Exception as e:
+            _hook_warning("reportlab.registerFont", e)
             return
 
     orig_init = Canvas.__init__
@@ -292,7 +314,7 @@ def _patch_reportlab():
             except Exception:
                 pass
 
-    __init__.__croki_patched__ = True
+    _mark_patched(__init__)
     Canvas.__init__ = __init__
 
 
@@ -304,7 +326,7 @@ def _patch_docx():
     except Exception:
         return
 
-    if getattr(api.Document, "__croki_patched__", False):
+    if _is_patched(api.Document):
         return
 
     text_rgb = None
@@ -336,7 +358,7 @@ def _patch_docx():
                 continue
         return doc
 
-    Document.__croki_patched__ = True
+    _mark_patched(Document)
     api.Document = Document
     docx.Document = Document
 
@@ -349,7 +371,7 @@ def _patch_pptx():
     except Exception:
         return
 
-    if getattr(PresentationClass.save, "__croki_patched__", False):
+    if _is_patched(PresentationClass.save):
         return
 
     text_rgb = None
@@ -402,7 +424,7 @@ def _patch_pptx():
             pass
         return orig_save(self, *args, **kwargs)
 
-    save.__croki_patched__ = True
+    _mark_patched(save)
     PresentationClass.save = save
 
 
@@ -432,10 +454,8 @@ def _ensure_matplotlib_env(workdir: str) -> None:
 
 
 def _new_artifact_path(prefix: str, ext: str) -> str:
-    global _ARTIFACT_COUNTER
-    _ARTIFACT_COUNTER += 1
     workdir = _WORKDIR or "/workspace"
-    name = f"{prefix}_{int(time.time() * 1000)}_{_ARTIFACT_COUNTER}.{ext}"
+    name = f"{prefix}_{int(time.time() * 1000)}_{next(_ARTIFACT_COUNTER)}.{ext}"
     return os.path.join(workdir, name)
 
 
@@ -452,7 +472,7 @@ def _patch_matplotlib():
     except Exception:
         return
 
-    if getattr(plt.show, "__croki_patched__", False):
+    if _is_patched(plt.show):
         return
 
     _apply_matplotlib_defaults()
@@ -476,7 +496,7 @@ def _patch_matplotlib():
         plt.close("all")
         return None
 
-    show.__croki_patched__ = True
+    _mark_patched(show)
     plt.show = show
 
 
@@ -486,7 +506,7 @@ def _patch_pil():
     except Exception:
         return
 
-    if getattr(Image.Image.show, "__croki_patched__", False):
+    if _is_patched(Image.Image.show):
         return
 
     orig_show = Image.Image.show
@@ -500,10 +520,11 @@ def _patch_pil():
             try:
                 self.convert("RGB").save(path)
                 return None
-            except Exception:
+            except Exception as e:
+                _hook_warning("pil.Image.show", e)
                 return orig_show(self, *args, **kwargs)
 
-    show.__croki_patched__ = True
+    _mark_patched(show)
     Image.Image.show = show
 
 
@@ -513,7 +534,7 @@ def _patch_plotly():
     except Exception:
         return
 
-    if getattr(basedatatypes.BaseFigure.show, "__croki_patched__", False):
+    if _is_patched(basedatatypes.BaseFigure.show):
         return
 
     _apply_plotly_defaults()
@@ -521,15 +542,21 @@ def _patch_plotly():
     orig_show = basedatatypes.BaseFigure.show
 
     def show(self, *args, **kwargs):
-        path = _new_artifact_path("plotly", "html")
+        png_path = _new_artifact_path("plotly", "png")
+        html_path = _new_artifact_path("plotly", "html")
         try:
             _apply_plotly_figure_defaults(self)
-            self.write_html(path, include_plotlyjs="cdn", full_html=True)
+            try:
+                self.write_image(png_path, format="png", scale=2)
+            except Exception as e:
+                _hook_warning("plotly.write_image", e)
+            self.write_html(html_path, include_plotlyjs="cdn", full_html=True)
             return None
-        except Exception:
+        except Exception as e:
+            _hook_warning("plotly.BaseFigure.show", e)
             return orig_show(self, *args, **kwargs)
 
-    show.__croki_patched__ = True
+    _mark_patched(show)
     basedatatypes.BaseFigure.show = show
 
 
@@ -538,9 +565,9 @@ def _croki_import(name, globals=None, locals=None, fromlist=(), level=0):
     try:
         if name == "matplotlib.pyplot" or (name == "matplotlib" and "pyplot" in (fromlist or ())):
             _patch_matplotlib()
-        if name.startswith("PIL"):
+        if name in ("PIL", "PIL.Image"):
             _patch_pil()
-        if name.startswith("plotly"):
+        if name in ("plotly", "plotly.graph_objects", "plotly.express"):
             _patch_plotly()
         if name == "reportlab.pdfgen.canvas" or (name == "reportlab.pdfgen" and "canvas" in (fromlist or ())):
             _patch_reportlab()
@@ -548,8 +575,8 @@ def _croki_import(name, globals=None, locals=None, fromlist=(), level=0):
             _patch_docx()
         if name == "pptx":
             _patch_pptx()
-    except Exception:
-        pass
+    except Exception as e:
+        _hook_warning("_croki_import", e)
     return mod
 
 

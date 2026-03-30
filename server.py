@@ -17,7 +17,7 @@ TIMEOUT_SECONDS = int(os.environ.get("SANDBOX_TIMEOUT_SECONDS", "15"))
 
 
 def _snapshot_files() -> dict[str, tuple[int, int]]:
-    out: dict[str, tuple[int, int]] = {}
+    out: dict[str, tuple[int, int, int, int, int]] = {}
     for root, _, files in os.walk(WORKDIR):
         for f in files:
             p = os.path.join(root, f)
@@ -27,11 +27,25 @@ def _snapshot_files() -> dict[str, tuple[int, int]]:
                 continue
             if not os.path.isfile(p):
                 continue
-            out[p] = (int(st.st_size), int(getattr(st, "st_mtime_ns", int(st.st_mtime * 1_000_000_000))))
+            mtime_ns = int(getattr(st, "st_mtime_ns", int(st.st_mtime * 1_000_000_000)))
+            ctime_ns = int(getattr(st, "st_ctime_ns", int(st.st_ctime * 1_000_000_000)))
+            dev = int(getattr(st, "st_dev", 0))
+            ino = int(getattr(st, "st_ino", 0))
+            out[p] = (int(st.st_size), mtime_ns, ctime_ns, dev, ino)
     return out
 
 
-def _changed_files(before: dict[str, tuple[int, int]], after: dict[str, tuple[int, int]]) -> list[str]:
+def _workdir_has_entries() -> bool:
+    try:
+        with os.scandir(WORKDIR) as it:
+            for _ in it:
+                return True
+    except FileNotFoundError:
+        return False
+    return False
+
+
+def _changed_files(before: dict[str, tuple[int, int, int, int, int]], after: dict[str, tuple[int, int, int, int, int]]) -> list[str]:
     changed: list[str] = []
     for p, meta in after.items():
         if before.get(p) != meta:
@@ -46,9 +60,6 @@ class _Timeout(Exception):
 
 def _timeout_handler(_signum, _frame):
     raise _Timeout("execution timed out")
-
-
-_GLOBALS: dict = {"__name__": "__main__", "__builtins__": __builtins__}
 
 
 class Handler(socketserver.StreamRequestHandler):
@@ -68,7 +79,7 @@ class Handler(socketserver.StreamRequestHandler):
             return
 
         artifact_hooks.ensure_auto_artifact_hooks(WORKDIR)
-        before = _snapshot_files()
+        before = _snapshot_files() if _workdir_has_entries() else {}
         out = io.StringIO()
         err = io.StringIO()
         error_text = ""
@@ -79,14 +90,16 @@ class Handler(socketserver.StreamRequestHandler):
 
         try:
             with redirect_stdout(out), redirect_stderr(err):
-                exec(code, _GLOBALS)
+                exec(code, {"__name__": "__main__", "__builtins__": __builtins__})
+        except _Timeout as e:
+            error_text = str(e)
         except Exception:
             error_text = traceback.format_exc()
         finally:
             signal.setitimer(signal.ITIMER_REAL, 0)
             signal.signal(signal.SIGALRM, old)
 
-        after = _snapshot_files()
+        after = _snapshot_files() if _workdir_has_entries() else {}
         resp = {
             "stdout": out.getvalue(),
             "stderr": err.getvalue(),

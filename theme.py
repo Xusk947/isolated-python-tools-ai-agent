@@ -36,18 +36,17 @@ CHART_COLORWAY_HEX = [
 ]
 
 
-def hex_to_rgb_float(hex_color: str) -> tuple[float, float, float]:
-    c = hex_color.strip().lstrip("#")
-    if len(c) != 6:
-        raise ValueError("invalid color")
-    r = int(c[0:2], 16) / 255.0
-    g = int(c[2:4], 16) / 255.0
-    b = int(c[4:6], 16) / 255.0
-    return (r, g, b)
-
-
-def hex_to_rgb_int(hex_color: str) -> tuple[int, int, int]:
+def _parse_hex(hex_color: str) -> tuple[int, int, int]:
     c = hex_color.strip().lstrip("#")
     if len(c) != 6:
         raise ValueError("invalid color")
     return (int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16))
+
+
+def hex_to_rgb_float(hex_color: str) -> tuple[float, float, float]:
+    r, g, b = _parse_hex(hex_color)
+    return (r / 255.0, g / 255.0, b / 255.0)
+
+
+def hex_to_rgb_int(hex_color: str) -> tuple[int, int, int]:
+    return _parse_hex(hex_color)
