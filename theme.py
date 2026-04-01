@@ -1,9 +1,12 @@
-TEXT_FONT_FAMILY = "Lato"
+TEXT_FONT_FAMILY = "Noto Sans"
 HEADING_FONT_FAMILY = "Unbounded"
 
 TEXT_FONT_STACK = [
     TEXT_FONT_FAMILY,
     "Inter",
+    "Montserrat",
+    "Rubik",
+    "Lato",
     "DejaVu Sans",
     "Arial",
     "Helvetica",
@@ -14,6 +17,9 @@ HEADING_FONT_STACK = [
     HEADING_FONT_FAMILY,
     TEXT_FONT_FAMILY,
     "Inter",
+    "Montserrat",
+    "Rubik",
+    "Lato",
     "DejaVu Sans",
     "Arial",
     "Helvetica",
@@ -50,3 +56,13 @@ def hex_to_rgb_float(hex_color: str) -> tuple[float, float, float]:
 
 def hex_to_rgb_int(hex_color: str) -> tuple[int, int, int]:
     return _parse_hex(hex_color)
+
+
+def get_font_path(family: str = TEXT_FONT_FAMILY) -> str:
+    """Returns the absolute path to the .ttf file for a given font family name."""
+    try:
+        import matplotlib.font_manager as fm
+        return fm.findfont(fm.FontProperties(family=family))
+    except Exception:
+        # Fallback to a common Noto Sans path if matplotlib fails
+        return "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf"

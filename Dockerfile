@@ -14,17 +14,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fontconfig \
     fonts-dejavu-core \
     fonts-lato \
+    fonts-noto-core \
     && fc-cache -f \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-RUN mkdir -p /usr/local/share/fonts/unbounded \
-    && curl -fsSL "https://raw.githubusercontent.com/w3f/unbounded/b32de1cba1743ccdba717843a048f79376044911/TTF/Unbounded-Regular.ttf" -o /usr/local/share/fonts/unbounded/Unbounded-Regular.ttf \
-    && fc-cache -f
+# Copy and install local fonts
+COPY fonts/ /usr/local/share/fonts/
+RUN fc-cache -f
 
-RUN mkdir -p /app/mplconfig && python3 -c "import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt; plt.figure(); plt.plot([0,1],[0,1]); plt.savefig('/tmp/_croki_mpl_warm.png');"
+# Pre-generate matplotlib font cache to include new fonts
+RUN mkdir -p /app/mplconfig && python3 -c "import matplotlib.font_manager; import os; cache_file = os.path.join('/app/mplconfig', 'fontlist-v390.json'); [os.remove(cache_file) if os.path.exists(cache_file) else None]; matplotlib.font_manager._load_fontmanager(try_read_cache=False); print(f'Matplotlib fonts cached: {len(matplotlib.font_manager.fontManager.ttflist)}')"
 
 COPY server.py /app/server.py
 COPY sandbox_client.py /app/sandbox_client.py

@@ -293,8 +293,14 @@ def _patch_reportlab():
     def __init__(self, *args, **kwargs):
         global _REPORTLAB_TTF_REGISTERED
         if not _REPORTLAB_TTF_REGISTERED:
-            _register_ttf("Lato", "/usr/share/fonts/truetype/lato/Lato-Regular.ttf")
-            _register_ttf("Unbounded", "/usr/local/share/fonts/unbounded/Unbounded-Regular.ttf")
+            _register_ttf("Lato", "/usr/local/share/fonts/Lato/Lato-Regular.ttf")
+            _register_ttf("Unbounded", "/usr/local/share/fonts/Unbounded/static/Unbounded-Regular.ttf")
+            _register_ttf("NotoSans", "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf")
+            _register_ttf("Inter", "/usr/local/share/fonts/Inter/static/Inter_18pt-Regular.ttf")
+            _register_ttf("Montserrat", "/usr/local/share/fonts/Montserrat/static/Montserrat-Regular.ttf")
+            _register_ttf("Rubik", "/usr/local/share/fonts/Rubik/static/Rubik-Regular.ttf")
+            _register_ttf("DelaGothicOne", "/usr/local/share/fonts/Dela_Gothic_One/DelaGothicOne-Regular.ttf")
+            _register_ttf("DejaVuSans", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
             try:
                 pdfmetrics.getFont("Lato")
                 _REPORTLAB_TTF_REGISTERED = True
